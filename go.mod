@@ -1,3 +1,5 @@
-module github.com/aaronjacobs/grafana-mcp-server
+module github.com/npcomplete777/grafana-mcp
 
 go 1.22
+
+require gopkg.in/yaml.v3 v3.0.1

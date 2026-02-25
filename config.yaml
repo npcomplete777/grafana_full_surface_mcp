@@ -1,0 +1,58 @@
+# Grafana MCP Server - Tool Configuration
+#
+# All 34 tools are enabled by default. To disable specific tools, add an
+# entry with enabled: false. The config file path can be overridden with
+# the GRAFANA_CONFIG_FILE environment variable.
+#
+# Example:
+#
+# tools:
+#   grafana_delete_dashboard:
+#     enabled: false
+#   grafana_delete_datasource:
+#     enabled: false
+
+# Uncomment and populate to selectively disable tools:
+tools: {}
+
+# Full tool inventory by category:
+#
+# Health (1):
+#   grafana_health
+#
+# Dashboards (5):
+#   grafana_search_dashboards, grafana_get_dashboard,
+#   grafana_create_dashboard, grafana_update_dashboard,
+#   grafana_delete_dashboard
+#
+# Datasources (5):
+#   grafana_list_datasources, grafana_get_datasource,
+#   grafana_create_datasource, grafana_update_datasource,
+#   grafana_delete_datasource
+#
+# Folders (5):
+#   grafana_list_folders, grafana_get_folder,
+#   grafana_create_folder, grafana_update_folder,
+#   grafana_delete_folder
+#
+# Alert Rules (5):
+#   grafana_list_alert_rules, grafana_get_alert_rule,
+#   grafana_create_alert_rule, grafana_update_alert_rule,
+#   grafana_delete_alert_rule
+#
+# Annotations (4):
+#   grafana_list_annotations, grafana_create_annotation,
+#   grafana_update_annotation, grafana_delete_annotation
+#
+# Query (1):
+#   grafana_query
+#
+# Organization (2):
+#   grafana_get_org, grafana_list_org_users
+#
+# User (1):
+#   grafana_get_current_user
+#
+# Teams (4):
+#   grafana_list_teams, grafana_get_team,
+#   grafana_create_team, grafana_delete_team

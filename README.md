@@ -1,95 +1,68 @@
 # Grafana MCP Server
 
-A comprehensive Model Context Protocol (MCP) server for Grafana, enabling AI assistants to interact with Grafana's full API surface.
+A [Model Context Protocol (MCP)](https://modelcontextprotocol.io) server that exposes the Grafana HTTP API as tools for AI assistants like Claude. Manage dashboards, datasources, folders, alert rules, annotations, teams, and more — all through natural language.
 
-## Features
+**34 tools across 9 Grafana API domains.**
 
-**38 Tools** covering:
+> No external dependencies beyond the YAML config library — pure Go stdlib for all Grafana API communication.
 
-### Dashboards
-- `grafana_search_dashboards` - Search dashboards by query, tags, folder
-- `grafana_get_dashboard` - Get dashboard by UID with full configuration
-- `grafana_create_dashboard` - Create new dashboards with panels
-- `grafana_update_dashboard` - Update existing dashboards
-- `grafana_delete_dashboard` - Delete dashboards
+---
 
-### Datasources
-- `grafana_list_datasources` - List all configured datasources
-- `grafana_get_datasource` - Get datasource details by UID
-- `grafana_create_datasource` - Create new datasources (Prometheus, Loki, etc.)
-- `grafana_update_datasource` - Update datasource configuration
-- `grafana_delete_datasource` - Delete datasources
+## Requirements
 
-### Folders
-- `grafana_list_folders` - List all folders
-- `grafana_get_folder` - Get folder by UID
-- `grafana_create_folder` - Create new folders
-- `grafana_update_folder` - Update folder title
-- `grafana_delete_folder` - Delete folders (and contents)
+- Go 1.22+
+- A running Grafana instance (self-hosted or Grafana Cloud)
+- A Grafana API key or service account token
 
-### Alert Rules
-- `grafana_list_alert_rules` - List all alert rules
-- `grafana_get_alert_rule` - Get alert rule by UID
-- `grafana_create_alert_rule` - Create new alert rules
-- `grafana_update_alert_rule` - Update alert rules
-- `grafana_delete_alert_rule` - Delete alert rules
+---
 
-### Annotations
-- `grafana_list_annotations` - List annotations with filters
-- `grafana_create_annotation` - Create annotations (point or region)
-- `grafana_update_annotation` - Update existing annotations
-- `grafana_delete_annotation` - Delete annotations
-
-### Query
-- `grafana_query` - Execute queries against any datasource (PromQL, LogQL, etc.)
-
-### Organization
-- `grafana_get_org` - Get current organization info
-- `grafana_list_org_users` - List users in organization
-
-### Users
-- `grafana_get_current_user` - Get authenticated user info
-
-### Teams
-- `grafana_list_teams` - List teams with search
-- `grafana_get_team` - Get team by ID
-- `grafana_create_team` - Create new teams
-- `grafana_delete_team` - Delete teams
-
-### Health
-- `grafana_health` - Check Grafana server health and version
-
-## Installation
-
-### Build from source
+## Build
 
 ```bash
-go build -o grafana-mcp-server ./cmd/server
+go build -o bin/grafana-mcp ./cmd/server
 ```
 
-### Run
+Or use the Makefile:
 
 ```bash
-export GRAFANA_URL="http://localhost:3000"
-export GRAFANA_API_KEY="your-api-key-here"
-./grafana-mcp-server
+make build          # current platform
+make build-darwin   # macOS arm64
+make build-linux    # Linux amd64
 ```
+
+---
 
 ## Configuration
 
-| Environment Variable | Description | Default |
-|---------------------|-------------|---------|
-| `GRAFANA_URL` | Grafana server URL | `http://localhost:3000` |
-| `GRAFANA_API_KEY` | Service account token or API key | (none) |
+### Environment variables
 
-### Creating an API Key
+| Variable | Default | Description |
+|---|---|---|
+| `GRAFANA_URL` | `http://localhost:3000` | Grafana base URL |
+| `GRAFANA_API_KEY` | — | API key or service account token |
+| `GRAFANA_CONFIG_FILE` | `config.yaml` | Path to tool enable/disable config |
 
-1. In Grafana, go to **Administration** → **Service accounts**
-2. Create a new service account
-3. Add a token with appropriate permissions
-4. Use the token as `GRAFANA_API_KEY`
+### Tool configuration (optional)
 
-## Claude Desktop Configuration
+Tools are individually enabled or disabled via a YAML file. By default every tool is enabled. The file path is resolved in this order:
+
+1. `GRAFANA_CONFIG_FILE` environment variable
+2. `config.yaml` in the working directory
+3. No file → all tools enabled
+
+**Format:**
+
+```yaml
+tools:
+  tool_name:
+    enabled: false   # omit or set true to enable
+```
+
+See [Recommended Profiles](#recommended-configuration-profiles) for ready-to-use configurations.
+
+---
+
+## Running with Claude Desktop
 
 Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
 
@@ -97,64 +70,320 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
 {
   "mcpServers": {
     "grafana": {
-      "command": "/path/to/grafana-mcp-server",
+      "command": "/path/to/bin/grafana-mcp",
       "env": {
-        "GRAFANA_URL": "http://localhost:3000",
-        "GRAFANA_API_KEY": "your-api-key"
+        "GRAFANA_URL": "https://your-grafana.example.com",
+        "GRAFANA_API_KEY": "glsa_YOUR_SERVICE_ACCOUNT_TOKEN",
+        "GRAFANA_CONFIG_FILE": "/path/to/config.yaml"
       }
     }
   }
 }
 ```
 
-## Example Usage
+## Running with Claude Code (CLI)
 
-### Search dashboards
+Add to `~/.mcp.json`:
+
 ```json
 {
-  "name": "grafana_search_dashboards",
-  "arguments": {
-    "query": "kubernetes",
-    "tags": ["production"],
-    "limit": 10
+  "mcpServers": {
+    "grafana": {
+      "command": "/path/to/bin/grafana-mcp",
+      "env": {
+        "GRAFANA_URL": "https://your-grafana.example.com",
+        "GRAFANA_API_KEY": "glsa_YOUR_SERVICE_ACCOUNT_TOKEN",
+        "GRAFANA_CONFIG_FILE": "/path/to/config.yaml"
+      }
+    }
   }
 }
 ```
 
-### Execute PromQL query
-```json
-{
-  "name": "grafana_query",
-  "arguments": {
-    "datasource_uid": "prometheus",
-    "datasource_type": "prometheus",
-    "query": "rate(http_requests_total[5m])",
-    "from": "now-1h",
-    "to": "now"
-  }
-}
+---
+
+## Tool Domains
+
+### Health (1 tool)
+| Tool | Description |
+|---|---|
+| `grafana_health` | Check Grafana server health and version |
+
+### Dashboards (5 tools)
+| Tool | Description |
+|---|---|
+| `grafana_search_dashboards` | Search dashboards by query, folder, or tags |
+| `grafana_get_dashboard` | Get a dashboard by UID |
+| `grafana_create_dashboard` | Create a new dashboard |
+| `grafana_update_dashboard` | Update an existing dashboard |
+| `grafana_delete_dashboard` | Delete a dashboard by UID |
+
+### Datasources (5 tools)
+| Tool | Description |
+|---|---|
+| `grafana_list_datasources` | List all configured datasources |
+| `grafana_get_datasource` | Get a datasource by name or ID |
+| `grafana_create_datasource` | Add a new datasource |
+| `grafana_update_datasource` | Update a datasource configuration |
+| `grafana_delete_datasource` | Remove a datasource |
+
+### Folders (5 tools)
+| Tool | Description |
+|---|---|
+| `grafana_list_folders` | List all dashboard folders |
+| `grafana_get_folder` | Get a folder by UID |
+| `grafana_create_folder` | Create a new folder |
+| `grafana_update_folder` | Rename or move a folder |
+| `grafana_delete_folder` | Delete a folder |
+
+### Alert Rules (5 tools)
+| Tool | Description |
+|---|---|
+| `grafana_list_alert_rules` | List all alert rules |
+| `grafana_get_alert_rule` | Get an alert rule by UID |
+| `grafana_create_alert_rule` | Create a new alert rule |
+| `grafana_update_alert_rule` | Update an existing alert rule |
+| `grafana_delete_alert_rule` | Delete an alert rule |
+
+### Annotations (4 tools)
+| Tool | Description |
+|---|---|
+| `grafana_list_annotations` | List annotations with optional time range and tag filters |
+| `grafana_create_annotation` | Create a new annotation |
+| `grafana_update_annotation` | Update an existing annotation |
+| `grafana_delete_annotation` | Delete an annotation |
+
+### Query (1 tool)
+| Tool | Description |
+|---|---|
+| `grafana_query` | Execute a raw datasource query (PromQL, Loki, etc.) |
+
+### Organization (2 tools)
+| Tool | Description |
+|---|---|
+| `grafana_get_org` | Get current organization info |
+| `grafana_list_org_users` | List users in the current organization |
+
+### User (1 tool)
+| Tool | Description |
+|---|---|
+| `grafana_get_current_user` | Get the currently authenticated user |
+
+### Teams (4 tools)
+| Tool | Description |
+|---|---|
+| `grafana_list_teams` | List all teams |
+| `grafana_get_team` | Get a team by ID |
+| `grafana_create_team` | Create a new team |
+| `grafana_delete_team` | Delete a team |
+
+---
+
+## Recommended Configuration Profiles
+
+Copy the relevant block into your `config.yaml` (or a file pointed to by `GRAFANA_CONFIG_FILE`).
+
+### Read-Only
+
+All list/get/search/query/health tools active. Every create, update, and delete tool disabled. Safe for shared environments and dashboards you don't want accidentally modified.
+
+```yaml
+# config-readonly.yaml
+# Zero writes — safe for production read access.
+tools:
+  grafana_create_dashboard:
+    enabled: false
+  grafana_update_dashboard:
+    enabled: false
+  grafana_delete_dashboard:
+    enabled: false
+  grafana_create_datasource:
+    enabled: false
+  grafana_update_datasource:
+    enabled: false
+  grafana_delete_datasource:
+    enabled: false
+  grafana_create_folder:
+    enabled: false
+  grafana_update_folder:
+    enabled: false
+  grafana_delete_folder:
+    enabled: false
+  grafana_create_alert_rule:
+    enabled: false
+  grafana_update_alert_rule:
+    enabled: false
+  grafana_delete_alert_rule:
+    enabled: false
+  grafana_create_annotation:
+    enabled: false
+  grafana_update_annotation:
+    enabled: false
+  grafana_delete_annotation:
+    enabled: false
+  grafana_create_team:
+    enabled: false
+  grafana_delete_team:
+    enabled: false
 ```
 
-### Create annotation
-```json
-{
-  "name": "grafana_create_annotation",
-  "arguments": {
-    "text": "Deployment v2.0.0",
-    "tags": ["deployment", "production"],
-    "dashboard_uid": "abc123"
-  }
-}
+---
+
+### SRE / On-Call
+
+Observability focus: health checks, dashboard browsing, querying datasources, reading alert rules and annotations. No configuration changes or deletions. Annotations can be created (useful for marking incidents).
+
+```yaml
+# config-sre.yaml
+# Read + incident annotations. No config mutations.
+tools:
+  grafana_create_dashboard:
+    enabled: false
+  grafana_update_dashboard:
+    enabled: false
+  grafana_delete_dashboard:
+    enabled: false
+  grafana_create_datasource:
+    enabled: false
+  grafana_update_datasource:
+    enabled: false
+  grafana_delete_datasource:
+    enabled: false
+  grafana_create_folder:
+    enabled: false
+  grafana_update_folder:
+    enabled: false
+  grafana_delete_folder:
+    enabled: false
+  grafana_create_alert_rule:
+    enabled: false
+  grafana_update_alert_rule:
+    enabled: false
+  grafana_delete_alert_rule:
+    enabled: false
+  grafana_update_annotation:
+    enabled: false
+  grafana_delete_annotation:
+    enabled: false
+  grafana_create_team:
+    enabled: false
+  grafana_delete_team:
+    enabled: false
 ```
 
-## Tool Annotations
+---
 
-All tools include MCP annotations for safe operation:
+### Dashboard Author
 
-- `readOnlyHint: true` - Read operations (list, get, search)
-- `destructiveHint: true` - Delete and update operations
-- `openWorldHint: true` - External API interactions
+Full dashboard and folder management. Cannot touch datasources, alert rules, or teams — reducing the blast radius to the dashboard layer only.
 
-## License
+```yaml
+# config-dashboard-author.yaml
+# Dashboard + folder CRUD. Read-only for everything else.
+tools:
+  grafana_create_datasource:
+    enabled: false
+  grafana_update_datasource:
+    enabled: false
+  grafana_delete_datasource:
+    enabled: false
+  grafana_create_alert_rule:
+    enabled: false
+  grafana_update_alert_rule:
+    enabled: false
+  grafana_delete_alert_rule:
+    enabled: false
+  grafana_create_annotation:
+    enabled: false
+  grafana_update_annotation:
+    enabled: false
+  grafana_delete_annotation:
+    enabled: false
+  grafana_create_team:
+    enabled: false
+  grafana_delete_team:
+    enabled: false
+```
 
-MIT
+---
+
+### Alerting Engineer
+
+Full alert rule management plus read access to dashboards and datasources for context. No dashboard mutations, no team or folder management.
+
+```yaml
+# config-alerting.yaml
+# Alert rule CRUD + read access. No dashboard/folder/team mutations.
+tools:
+  grafana_create_dashboard:
+    enabled: false
+  grafana_update_dashboard:
+    enabled: false
+  grafana_delete_dashboard:
+    enabled: false
+  grafana_create_datasource:
+    enabled: false
+  grafana_update_datasource:
+    enabled: false
+  grafana_delete_datasource:
+    enabled: false
+  grafana_create_folder:
+    enabled: false
+  grafana_update_folder:
+    enabled: false
+  grafana_delete_folder:
+    enabled: false
+  grafana_create_team:
+    enabled: false
+  grafana_delete_team:
+    enabled: false
+```
+
+---
+
+### Admin
+
+All tools enabled. Default when no config file is present.
+
+```yaml
+# config-admin.yaml
+# Full access — all 34 tools enabled.
+tools: {}
+```
+
+---
+
+## Grafana API Key Scopes
+
+The minimum required permissions for a service account token depend on which tools you enable:
+
+| Domain | Required role / permission |
+|---|---|
+| Health | No auth required (public endpoint) |
+| Dashboards | `Viewer` to read; `Editor` to create/update/delete |
+| Datasources | `Viewer` to list/get; `Admin` to create/update/delete |
+| Folders | `Viewer` to list/get; `Editor` to create/update/delete |
+| Alert Rules | `Viewer` to read; `Editor` to create/update/delete |
+| Annotations | `Viewer` to read; `Editor` to create/update/delete |
+| Query | `Viewer` (datasource query permissions apply) |
+| Organization | `Viewer` |
+| Teams | `Viewer` to read; `Admin` to create/delete |
+
+For read-only profiles a **Viewer** service account is sufficient. For full admin profiles use an **Admin** service account or a token with `Admin` role.
+
+---
+
+## Project Structure
+
+```
+.
+├── cmd/server/main.go          # Entry point — env config, MCP protocol loop
+├── config.yaml                 # Tool enable/disable configuration
+├── internal/
+│   ├── config/config.go        # ToolsConfig, IsEnabled(), YAML loading
+│   ├── grafana/client.go       # Grafana HTTP client (all API calls)
+│   ├── mcp/types.go            # MCP JSON-RPC types
+│   └── tools/registry.go       # Tool registry, definitions, and handlers
+├── Makefile
+└── go.mod
+```

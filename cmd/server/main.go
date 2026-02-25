@@ -8,9 +8,10 @@ import (
 	"log"
 	"os"
 
-	"github.com/aaronjacobs/grafana-mcp-server/internal/grafana"
-	"github.com/aaronjacobs/grafana-mcp-server/internal/mcp"
-	"github.com/aaronjacobs/grafana-mcp-server/internal/tools"
+	"github.com/npcomplete777/grafana-mcp/internal/config"
+	"github.com/npcomplete777/grafana-mcp/internal/grafana"
+	"github.com/npcomplete777/grafana-mcp/internal/mcp"
+	"github.com/npcomplete777/grafana-mcp/internal/tools"
 )
 
 const (
@@ -38,11 +39,17 @@ func main() {
 		log.Println("Warning: GRAFANA_API_KEY not set, some operations may fail")
 	}
 
+	// Load tool enable/disable config (config.yaml or GRAFANA_CONFIG_FILE)
+	toolCfg, err := config.Load()
+	if err != nil {
+		log.Fatalf("Configuration error: %v", err)
+	}
+
 	// Create Grafana client
 	client := grafana.NewClient(grafanaURL, apiKey)
 
 	// Create tool registry
-	registry := tools.NewRegistry(client)
+	registry := tools.NewRegistry(client, toolCfg.IsEnabled)
 
 	// Create server
 	server := &Server{

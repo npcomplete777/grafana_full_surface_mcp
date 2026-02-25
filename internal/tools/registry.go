@@ -5,85 +5,99 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/aaronjacobs/grafana-mcp-server/internal/grafana"
-	"github.com/aaronjacobs/grafana-mcp-server/internal/mcp"
+	"github.com/npcomplete777/grafana-mcp/internal/grafana"
+	"github.com/npcomplete777/grafana-mcp/internal/mcp"
 )
 
 // Registry holds all tool definitions and handlers
 type Registry struct {
-	client *grafana.Client
-	tools  map[string]ToolHandler
+	client    *grafana.Client
+	tools     map[string]ToolHandler
+	isEnabled func(string) bool
 }
 
 // ToolHandler processes a tool call
 type ToolHandler func(args map[string]interface{}) (*mcp.CallToolResult, error)
 
-// NewRegistry creates a new tool registry
-func NewRegistry(client *grafana.Client) *Registry {
+// NewRegistry creates a new tool registry. isEnabled gates individual tools;
+// pass nil to enable all tools unconditionally.
+func NewRegistry(client *grafana.Client, isEnabled func(string) bool) *Registry {
+	if isEnabled == nil {
+		isEnabled = func(string) bool { return true }
+	}
 	r := &Registry{
-		client: client,
-		tools:  make(map[string]ToolHandler),
+		client:    client,
+		tools:     make(map[string]ToolHandler),
+		isEnabled: isEnabled,
 	}
 	r.registerAll()
 	return r
 }
 
-// GetTools returns all tool definitions
+// GetTools returns all enabled tool definitions.
 func (r *Registry) GetTools() []mcp.Tool {
-	return []mcp.Tool{
+	all := []mcp.Tool{
 		// Health
 		r.grafanaHealthTool(),
-		
+
 		// Dashboard tools
 		r.grafanaSearchDashboardsTool(),
 		r.grafanaGetDashboardTool(),
 		r.grafanaCreateDashboardTool(),
 		r.grafanaUpdateDashboardTool(),
 		r.grafanaDeleteDashboardTool(),
-		
+
 		// Datasource tools
 		r.grafanaListDatasourcesTool(),
 		r.grafanaGetDatasourceTool(),
 		r.grafanaCreateDatasourceTool(),
 		r.grafanaUpdateDatasourceTool(),
 		r.grafanaDeleteDatasourceTool(),
-		
+
 		// Folder tools
 		r.grafanaListFoldersTool(),
 		r.grafanaGetFolderTool(),
 		r.grafanaCreateFolderTool(),
 		r.grafanaUpdateFolderTool(),
 		r.grafanaDeleteFolderTool(),
-		
+
 		// Alert tools
 		r.grafanaListAlertRulesTool(),
 		r.grafanaGetAlertRuleTool(),
 		r.grafanaCreateAlertRuleTool(),
 		r.grafanaUpdateAlertRuleTool(),
 		r.grafanaDeleteAlertRuleTool(),
-		
+
 		// Annotation tools
 		r.grafanaListAnnotationsTool(),
 		r.grafanaCreateAnnotationTool(),
 		r.grafanaUpdateAnnotationTool(),
 		r.grafanaDeleteAnnotationTool(),
-		
+
 		// Query tools
 		r.grafanaQueryTool(),
-		
+
 		// Organization tools
 		r.grafanaGetOrgTool(),
 		r.grafanaListOrgUsersTool(),
-		
+
 		// User tools
 		r.grafanaGetCurrentUserTool(),
-		
+
 		// Team tools
 		r.grafanaListTeamsTool(),
 		r.grafanaGetTeamTool(),
 		r.grafanaCreateTeamTool(),
 		r.grafanaDeleteTeamTool(),
 	}
+
+	enabled := make([]mcp.Tool, 0, len(all))
+	for _, t := range all {
+		if r.isEnabled(t.Name) {
+			enabled = append(enabled, t)
+		}
+	}
+	return enabled
 }
 
 // CallTool executes a tool by name
@@ -99,58 +113,64 @@ func (r *Registry) CallTool(name string, args map[string]interface{}) (*mcp.Call
 }
 
 func (r *Registry) registerAll() {
+	reg := func(name string, h ToolHandler) {
+		if r.isEnabled(name) {
+			r.tools[name] = h
+		}
+	}
+
 	// Health
-	r.tools["grafana_health"] = r.handleHealth
-	
+	reg("grafana_health", r.handleHealth)
+
 	// Dashboards
-	r.tools["grafana_search_dashboards"] = r.handleSearchDashboards
-	r.tools["grafana_get_dashboard"] = r.handleGetDashboard
-	r.tools["grafana_create_dashboard"] = r.handleCreateDashboard
-	r.tools["grafana_update_dashboard"] = r.handleUpdateDashboard
-	r.tools["grafana_delete_dashboard"] = r.handleDeleteDashboard
-	
+	reg("grafana_search_dashboards", r.handleSearchDashboards)
+	reg("grafana_get_dashboard", r.handleGetDashboard)
+	reg("grafana_create_dashboard", r.handleCreateDashboard)
+	reg("grafana_update_dashboard", r.handleUpdateDashboard)
+	reg("grafana_delete_dashboard", r.handleDeleteDashboard)
+
 	// Datasources
-	r.tools["grafana_list_datasources"] = r.handleListDatasources
-	r.tools["grafana_get_datasource"] = r.handleGetDatasource
-	r.tools["grafana_create_datasource"] = r.handleCreateDatasource
-	r.tools["grafana_update_datasource"] = r.handleUpdateDatasource
-	r.tools["grafana_delete_datasource"] = r.handleDeleteDatasource
-	
+	reg("grafana_list_datasources", r.handleListDatasources)
+	reg("grafana_get_datasource", r.handleGetDatasource)
+	reg("grafana_create_datasource", r.handleCreateDatasource)
+	reg("grafana_update_datasource", r.handleUpdateDatasource)
+	reg("grafana_delete_datasource", r.handleDeleteDatasource)
+
 	// Folders
-	r.tools["grafana_list_folders"] = r.handleListFolders
-	r.tools["grafana_get_folder"] = r.handleGetFolder
-	r.tools["grafana_create_folder"] = r.handleCreateFolder
-	r.tools["grafana_update_folder"] = r.handleUpdateFolder
-	r.tools["grafana_delete_folder"] = r.handleDeleteFolder
-	
+	reg("grafana_list_folders", r.handleListFolders)
+	reg("grafana_get_folder", r.handleGetFolder)
+	reg("grafana_create_folder", r.handleCreateFolder)
+	reg("grafana_update_folder", r.handleUpdateFolder)
+	reg("grafana_delete_folder", r.handleDeleteFolder)
+
 	// Alerts
-	r.tools["grafana_list_alert_rules"] = r.handleListAlertRules
-	r.tools["grafana_get_alert_rule"] = r.handleGetAlertRule
-	r.tools["grafana_create_alert_rule"] = r.handleCreateAlertRule
-	r.tools["grafana_update_alert_rule"] = r.handleUpdateAlertRule
-	r.tools["grafana_delete_alert_rule"] = r.handleDeleteAlertRule
-	
+	reg("grafana_list_alert_rules", r.handleListAlertRules)
+	reg("grafana_get_alert_rule", r.handleGetAlertRule)
+	reg("grafana_create_alert_rule", r.handleCreateAlertRule)
+	reg("grafana_update_alert_rule", r.handleUpdateAlertRule)
+	reg("grafana_delete_alert_rule", r.handleDeleteAlertRule)
+
 	// Annotations
-	r.tools["grafana_list_annotations"] = r.handleListAnnotations
-	r.tools["grafana_create_annotation"] = r.handleCreateAnnotation
-	r.tools["grafana_update_annotation"] = r.handleUpdateAnnotation
-	r.tools["grafana_delete_annotation"] = r.handleDeleteAnnotation
-	
+	reg("grafana_list_annotations", r.handleListAnnotations)
+	reg("grafana_create_annotation", r.handleCreateAnnotation)
+	reg("grafana_update_annotation", r.handleUpdateAnnotation)
+	reg("grafana_delete_annotation", r.handleDeleteAnnotation)
+
 	// Query
-	r.tools["grafana_query"] = r.handleQuery
-	
+	reg("grafana_query", r.handleQuery)
+
 	// Organization
-	r.tools["grafana_get_org"] = r.handleGetOrg
-	r.tools["grafana_list_org_users"] = r.handleListOrgUsers
-	
+	reg("grafana_get_org", r.handleGetOrg)
+	reg("grafana_list_org_users", r.handleListOrgUsers)
+
 	// User
-	r.tools["grafana_get_current_user"] = r.handleGetCurrentUser
-	
+	reg("grafana_get_current_user", r.handleGetCurrentUser)
+
 	// Teams
-	r.tools["grafana_list_teams"] = r.handleListTeams
-	r.tools["grafana_get_team"] = r.handleGetTeam
-	r.tools["grafana_create_team"] = r.handleCreateTeam
-	r.tools["grafana_delete_team"] = r.handleDeleteTeam
+	reg("grafana_list_teams", r.handleListTeams)
+	reg("grafana_get_team", r.handleGetTeam)
+	reg("grafana_create_team", r.handleCreateTeam)
+	reg("grafana_delete_team", r.handleDeleteTeam)
 }
 
 // Helper functions
